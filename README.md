@@ -58,26 +58,6 @@ streamlit run app.py
 It opens at http://localhost:8501. The model name is optional — leave it out and
 it falls back to the Qwen coder model above.
 
-## Putting it online
-
-The simplest option is Streamlit Community Cloud, which runs straight from a
-GitHub repo:
-
-1. Sign in at https://share.streamlit.io with your GitHub account.
-2. Create an app pointing at this repo, branch `main`, main file `app.py`.
-3. Under *Advanced settings → Secrets*, add the same two values as your `.env`,
-   but in TOML form:
-
-   ```toml
-   HF_API_KEY = "hf_your_token_here"
-   HF_MODEL_NAME = "Qwen/Qwen2.5-Coder-32B-Instruct"
-   ```
-
-4. Deploy. The token lives in Secrets and never ends up in the repo.
-
-One thing to keep in mind: a deployed app is public by default and will use your
-token for anyone who opens the link, so use a token you don't mind rotating later.
-
 ## About the database
 
 It ships with an expanded version of Northwind, the classic sample database for a
