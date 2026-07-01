@@ -112,5 +112,3 @@ pytest
 ## License
 
 MIT — see the [LICENSE](LICENSE) file.
-
-Built by Sarah Houas at ESTIN, 2025.
