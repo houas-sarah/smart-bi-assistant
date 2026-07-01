@@ -23,7 +23,7 @@ load_dotenv()  # Load variables from .env if present
 HF_API_KEY = os.getenv("HF_API_KEY")  # You must set this in a .env file
 HF_MODEL_NAME = os.getenv(
     "HF_MODEL_NAME",
-    "mistralai/Mistral-7B-Instruct-v0.2"  # default model (can be changed)
+    "Qwen/Qwen2.5-Coder-32B-Instruct"  # default model (can be changed)
 )
 
 if HF_API_KEY is None:
@@ -42,8 +42,6 @@ def get_schema_description(db_path: str = "northwind.db") -> str:
     Introspect the SQLite database to build a small schema description
     (tables + columns). This is sent to the LLM so it knows what exists.
     """
-    import sqlite3
-
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -58,10 +56,15 @@ def get_schema_description(db_path: str = "northwind.db") -> str:
         if table.startswith("sqlite_"):
             continue
 
-        # Sécuriser le nom de la table (quotes + escape des apostrophes)
-        safe_table = table.replace("'", "''")
-        cursor.execute(f"PRAGMA table_info('{safe_table}');")
+        # Quote/escape the table name defensively
+        safe_table = table.replace('"', '""')
 
+        # Skip empty tables so the LLM does not query tables with no data
+        cursor.execute(f'SELECT COUNT(*) FROM "{safe_table}";')
+        if cursor.fetchone()[0] == 0:
+            continue
+
+        cursor.execute(f'PRAGMA table_info("{safe_table}");')
         columns = [row[1] for row in cursor.fetchall()]  # column names
         schema_lines.append(f"{table}: {', '.join(columns)}")
 
@@ -155,10 +158,9 @@ SQL query:
         "Content-Type": "application/json",
     }
 
-    # ex: HF_MODEL_NAME="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-    # le router attend "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B:hf-inference"
-    base_model = HF_MODEL_NAME or "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-    model_name = f"{base_model}:hf-inference"
+    # The Hugging Face router auto-selects an available provider for the model.
+    # To pin a specific provider, set HF_MODEL_NAME="<model>:<provider>" in .env.
+    model_name = HF_MODEL_NAME or "Qwen/Qwen2.5-Coder-32B-Instruct"
 
     payload = {
         "model": model_name,
