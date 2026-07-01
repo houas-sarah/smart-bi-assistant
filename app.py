@@ -3,12 +3,23 @@ Smart BI Assistant — Streamlit interface
 Editorial dark theme: warm neutrals, one confident accent, real typography.
 """
 
+import os
 import time
 from datetime import datetime
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
+# On Streamlit Community Cloud there is no .env file — credentials come from
+# st.secrets. Mirror them into environment variables so query_engine (which
+# reads os.getenv) works identically whether run locally or deployed.
+try:
+    for _key in ("HF_API_KEY", "HF_MODEL_NAME"):
+        if _key not in os.environ and _key in st.secrets:
+            os.environ[_key] = str(st.secrets[_key])
+except Exception:
+    pass
 
 from query_engine import execute_and_explain, get_example_questions
 from database import NorthwindDB
@@ -312,18 +323,21 @@ def build_chart(df: pd.DataFrame):
 
     # Time-ish x-axis -> line, otherwise bar.
     temporal = any(k in str(x_col).lower() for k in ("month", "date", "year", "day", "time"))
+    chart_title = f"{y_col} by {x_col}"
     if temporal:
-        fig = px.line(df, x=x_col, y=y_col, markers=True, color_discrete_sequence=[PALETTE[0]])
+        fig = px.line(df, x=x_col, y=y_col, markers=True,
+                      color_discrete_sequence=[PALETTE[0]], title=chart_title)
     else:
-        fig = px.bar(df, x=x_col, y=y_col, color_discrete_sequence=[PALETTE[0]])
+        fig = px.bar(df, x=x_col, y=y_col,
+                     color_discrete_sequence=[PALETTE[0]], title=chart_title)
 
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter", color="#ece9e3", size=13),
-        title=None,
-        margin=dict(l=10, r=10, t=20, b=10),
+        title=dict(text=chart_title, font=dict(family="Space Grotesk", size=16, color="#ece9e3")),
+        margin=dict(l=10, r=10, t=52, b=10),
         xaxis=dict(gridcolor="#22222a", title_font_size=12),
         yaxis=dict(gridcolor="#22222a", title_font_size=12),
         hoverlabel=dict(bgcolor="#16161c", bordercolor="#2a2a33", font_family="JetBrains Mono"),
@@ -521,7 +535,6 @@ st.markdown(
     """
 <div class="foot">
     <span>Smart BI Assistant · Natural-language business intelligence</span>
-    <span class="a">Sarah Houas · ESTIN 2025 · s_houas@estin.dz</span>
 </div>
 """,
     unsafe_allow_html=True,
