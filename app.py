@@ -1,510 +1,528 @@
 """
-Smart BI Query Assistant - Enhanced Enterprise UI
-Professional styling with modern design patterns
+Smart BI Assistant — Streamlit interface
+Editorial dark theme: warm neutrals, one confident accent, real typography.
 """
 
-import streamlit as st
-import pandas as pd
-from query_engine import get_example_questions
-from database import NorthwindDB
-import plotly.express as px
-import plotly.graph_objects as go
+import time
 from datetime import datetime
 
-# ============================================================================
-# PAGE CONFIGURATION & THEMING
-# ============================================================================
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+from query_engine import execute_and_explain, get_example_questions
+from database import NorthwindDB
+
+# ---------------------------------------------------------------------------
+# Page setup
+# ---------------------------------------------------------------------------
 
 st.set_page_config(
     page_title="Smart BI Assistant",
-    page_icon="📊",
+    page_icon="◆",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={
-        'About': "**Smart BI Assistant** - Master's Thesis Project | ESTIN 2025"
-    }
+    menu_items={"About": "Smart BI Assistant · Master's Thesis · ESTIN 2025"},
 )
 
-# ============================================================================
-# CUSTOM CSS - Professional Dark Theme with Gradients
-# ============================================================================
+# Signature chart palette (reused everywhere for consistency)
+PALETTE = ["#ff6a45", "#f4b740", "#58d6b0", "#6aa6ff", "#c084fc", "#f472b6"]
 
-st.markdown("""
+# ---------------------------------------------------------------------------
+# Design system (CSS)
+# ---------------------------------------------------------------------------
+
+st.markdown(
+    """
 <style>
-    /* Root Variables */
-    :root {
-        --primary: #6366f1;
-        --primary-dark: #4f46e5;
-        --accent: #ec4899;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --danger: #ef4444;
-        --dark-bg: #0f172a;
-        --card-bg: #1e293b;
-        --border: #334155;
-        --text-primary: #f1f5f9;
-        --text-secondary: #cbd5e1;
-    }
-    
-    /* Main Container Styling */
-    .main {
-        background: linear-gradient(135deg, #0f172a 0%, #1a1f35 100%);
-        color: var(--text-primary);
-    }
-    
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-        border-right: 1px solid var(--border);
-    }
-    
-    /* Header Styling */
-    .header-container {
-        background: linear-gradient(90deg, #6366f1 0%, #ec4899 100%);
-        padding: 2rem;
-        border-radius: 16px;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
-    }
-    
-    .header-title {
-        font-size: 2.5rem;
-        font-weight: 800;
-        color: white;
-        margin: 0;
-        background: linear-gradient(90deg, #ffffff 0%, #e0e7ff 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .header-subtitle {
-        color: rgba(255, 255, 255, 0.85);
-        font-size: 1rem;
-        margin-top: 0.5rem;
-        font-weight: 500;
-    }
-    
-    /* Input/Search Box Styling */
-    .search-container {
-        position: relative;
-        margin: 2rem 0;
-    }
-    
-    .stTextInput > div > div > input {
-        background: var(--card-bg) !important;
-        border: 2px solid var(--border) !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 1.5rem !important;
-        color: var(--text-primary) !important;
-        font-size: 1rem !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border: 2px solid var(--primary) !important;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
-    }
-    
-    /* Button Styling */
-    .stButton > button {
-        background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 10px !important;
-        padding: 0.75rem 2rem !important;
-        font-weight: 600 !important;
-        font-size: 0.95rem !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3) !important;
-        width: 100% !important;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(90deg, #4f46e5 0%, #4338ca 100%) !important;
-        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4) !important;
-        transform: translateY(-2px) !important;
-    }
-    
-    .stButton > button:active {
-        transform: translateY(0) !important;
-    }
-    
-    /* Card/Container Styling */
-    .metric-card {
-        background: var(--card-bg);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-    
-    .metric-card:hover {
-        border: 1px solid var(--primary);
-        box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
-        transform: translateY(-2px);
-    }
-    
-    /* Success/Error Message Styling */
-    .success-message {
-        background: rgba(16, 185, 129, 0.1);
-        border-left: 4px solid var(--success);
-        padding: 1rem;
-        border-radius: 8px;
-        color: #d1fae5;
-        margin: 1rem 0;
-    }
-    
-    .error-message {
-        background: rgba(239, 68, 68, 0.1);
-        border-left: 4px solid var(--danger);
-        padding: 1rem;
-        border-radius: 8px;
-        color: #fecaca;
-        margin: 1rem 0;
-    }
-    
-    .info-message {
-        background: rgba(99, 102, 241, 0.1);
-        border-left: 4px solid var(--primary);
-        padding: 1rem;
-        border-radius: 8px;
-        color: #c7d2fe;
-        margin: 1rem 0;
-    }
-    
-    /* Tab Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: var(--card-bg);
-        padding: 0.5rem;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        color: var(--text-secondary);
-        border: none;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%) !important;
-        color: white !important;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-    }
-    
-    /* Dataframe Styling */
-    .stDataFrame {
-        background: var(--card-bg) !important;
-        border-radius: 10px !important;
-        border: 1px solid var(--border) !important;
-    }
-    
-    .stDataFrame [data-testid="stDataFrameResizable"] {
-        background: var(--card-bg) !important;
-    }
-    
-    /* Metric Styling */
-    .stMetric {
-        background: var(--card-bg);
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-    }
-    
-    /* Example Questions Box */
-    .examples-box {
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(236, 72, 153, 0.05) 100%);
-        border: 1px solid rgba(99, 102, 241, 0.2);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-    }
-    
-    .example-item {
-        background: var(--card-bg);
-        border-left: 3px solid var(--primary);
-        padding: 0.75rem 1rem;
-        margin: 0.5rem 0;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .example-item:hover {
-        background: rgba(99, 102, 241, 0.1);
-        transform: translateX(5px);
-    }
-    
-    /* Footer Styling */
-    .footer {
-        margin-top: 3rem;
-        padding-top: 2rem;
-        border-top: 1px solid var(--border);
-        text-align: center;
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-    }
-    
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: var(--card-bg);
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: var(--primary);
-    }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+    --bg:       #0e0e12;
+    --panel:    #16161c;
+    --panel-2:  #1c1c24;
+    --line:     #2a2a33;
+    --line-soft:#22222a;
+    --ink:      #ece9e3;
+    --muted:    #928e86;
+    --faint:    #67635c;
+    --coral:    #ff6a45;
+    --coral-2:  #ff8a6a;
+    --amber:    #f4b740;
+    --mint:     #58d6b0;
+}
+
+/* Base ------------------------------------------------------------------ */
+html, body, [class*="css"], .stApp, input, textarea, button {
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+.stApp {
+    background:
+        radial-gradient(1100px 520px at 78% -8%, rgba(255,106,69,0.10), transparent 60%),
+        radial-gradient(900px 500px at 8% 4%, rgba(88,214,176,0.05), transparent 55%),
+        var(--bg);
+    color: var(--ink);
+}
+.block-container { padding-top: 3rem; padding-bottom: 3rem; max-width: 1180px; }
+
+h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.01em; }
+a { color: var(--coral-2); }
+hr { border-color: var(--line-soft); }
+
+/* Kicker / mono labels -------------------------------------------------- */
+.kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;
+    color: #ff9270; margin: 0 0 0.7rem 2px; text-shadow: 0 0 24px rgba(255,106,69,0.35);
+}
+.section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted); margin: 1.6rem 0 0.7rem; display: flex; align-items: center; gap: .6rem;
+}
+.section-label .n { color: var(--coral); font-weight: 600; }
+.section-label::after { content:""; flex:1; height:1px; background: var(--line-soft); }
+
+/* Header ---------------------------------------------------------------- */
+.wordmark {
+    font-size: 2.7rem; font-weight: 700; margin: 0; line-height: 1.05; color: var(--ink);
+}
+.wordmark .mk { color: var(--coral); }
+.tagline { color: var(--muted); font-size: 1.02rem; margin: .5rem 0 1rem; max-width: 560px; }
+
+.chips { display:flex; gap:.5rem; flex-wrap:wrap; }
+.chip {
+    font-family:'JetBrains Mono', monospace; font-size:.72rem; color: var(--muted);
+    background: var(--panel); border:1px solid var(--line);
+    padding:.32rem .7rem; border-radius: 999px; display:inline-flex; align-items:center; gap:.4rem;
+}
+.chip .d { width:6px; height:6px; border-radius:50%; background: var(--mint); box-shadow:0 0 8px var(--mint); }
+
+/* Flow strip ------------------------------------------------------------ */
+.flow { display:flex; align-items:stretch; gap:.6rem; margin:1.4rem 0 .4rem; flex-wrap:wrap; }
+.flow-step {
+    flex:1; min-width:150px; background: var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:.85rem 1rem; display:flex; gap:.7rem; align-items:center;
+}
+.flow-step .fn {
+    font-family:'JetBrains Mono', monospace; font-size:.8rem; color: var(--coral);
+    border:1px solid var(--line); border-radius:8px; width:26px; height:26px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.flow-step .ft { font-weight:600; font-size:.9rem; color: var(--ink); }
+.flow-step .fd { font-size:.78rem; color: var(--faint); }
+
+/* Inputs ---------------------------------------------------------------- */
+.stTextInput > div > div > input {
+    background: var(--panel) !important; border:1px solid var(--line) !important;
+    border-radius:12px !important; padding: .95rem 1.1rem !important;
+    color: var(--ink) !important; font-size:1.02rem !important;
+}
+.stTextInput > div > div > input::placeholder { color: var(--faint) !important; }
+.stTextInput > div > div > input:focus {
+    border-color: var(--coral) !important;
+    box-shadow: 0 0 0 3px rgba(255,106,69,0.14) !important;
+}
+
+/* Buttons — primary = coral, everything else = ghost ------------------- */
+.stButton > button, .stDownloadButton > button {
+    background: var(--panel); color: var(--ink);
+    border:1px solid var(--line); border-radius:11px;
+    padding:.7rem 1rem; font-weight:500; font-size:.9rem;
+    transition: all .18s ease; width:100%; text-align:left;
+}
+.stButton > button:hover, .stDownloadButton > button:hover {
+    border-color: var(--coral); color:#fff; background: var(--panel-2);
+}
+.stButton > button[kind="primary"] {
+    background: var(--coral); color:#1a0f0b; border:1px solid var(--coral);
+    font-weight:600; text-align:center;
+}
+.stButton > button[kind="primary"]:hover {
+    background: var(--coral-2); border-color: var(--coral-2); color:#1a0f0b;
+    box-shadow: 0 6px 22px rgba(255,106,69,0.28);
+}
+
+/* Sidebar --------------------------------------------------------------- */
+[data-testid="stSidebar"] {
+    background: #101015; border-right:1px solid var(--line-soft);
+}
+[data-testid="stSidebar"] .stButton > button { font-size:.82rem; padding:.55rem .8rem; }
+.side-h {
+    font-family:'JetBrains Mono', monospace; font-size:.72rem; letter-spacing:.18em;
+    text-transform:uppercase; color: var(--faint); margin:1.3rem 0 .6rem;
+}
+
+/* Result banner --------------------------------------------------------- */
+.banner {
+    display:flex; align-items:center; gap:.7rem; background: var(--panel);
+    border:1px solid var(--line); border-left:3px solid var(--mint);
+    padding:.85rem 1.1rem; border-radius:10px; color: var(--ink);
+    font-size:.92rem; margin:.6rem 0 1.2rem;
+}
+.banner.warn { border-left-color: var(--amber); }
+.banner.err  { border-left-color: var(--coral); }
+.banner .bd { width:7px; height:7px; border-radius:50%; background: var(--mint); flex-shrink:0; }
+.banner.warn .bd { background: var(--amber); }
+.banner.err .bd  { background: var(--coral); }
+
+/* Metrics --------------------------------------------------------------- */
+[data-testid="stMetric"] {
+    background: var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:1rem 1.1rem; position:relative; overflow:hidden;
+}
+[data-testid="stMetric"]::before {
+    content:""; position:absolute; top:0; left:0; width:100%; height:2px; background: var(--coral);
+    opacity:.7;
+}
+[data-testid="stMetricLabel"] {
+    font-family:'JetBrains Mono', monospace; font-size:.68rem !important;
+    letter-spacing:.12em; text-transform:uppercase; color: var(--muted) !important;
+}
+[data-testid="stMetricValue"] {
+    font-family:'JetBrains Mono', monospace; font-weight:600; color: var(--ink) !important;
+}
+
+/* Tabs ------------------------------------------------------------------ */
+.stTabs [data-baseweb="tab-list"] { gap:.4rem; background:transparent; border-bottom:1px solid var(--line-soft); }
+.stTabs [data-baseweb="tab"] {
+    background:transparent; color: var(--muted); border-radius:8px 8px 0 0;
+    padding:.55rem 1.1rem; font-family:'JetBrains Mono', monospace; font-size:.8rem; letter-spacing:.05em;
+}
+.stTabs [aria-selected="true"] { color: var(--coral) !important; border-bottom:2px solid var(--coral); }
+
+/* Dataframe ------------------------------------------------------------- */
+[data-testid="stDataFrame"] { border:1px solid var(--line); border-radius:12px; }
+
+/* Code console ---------------------------------------------------------- */
+.console-bar {
+    display:flex; align-items:center; gap:.45rem; padding:.55rem .9rem;
+    background: var(--panel-2); border:1px solid var(--line); border-bottom:none;
+    border-radius:12px 12px 0 0;
+}
+.console-bar .dot { width:11px; height:11px; border-radius:50%; }
+.console-bar .t {
+    margin-left:.6rem; font-family:'JetBrains Mono', monospace; font-size:.72rem; color: var(--faint);
+}
+.stCodeBlock { border-radius:0 0 12px 12px !important; }
+
+/* Empty / info ---------------------------------------------------------- */
+.note {
+    background: var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:1.4rem; color: var(--muted); font-size:.92rem; text-align:center;
+}
+
+/* Footer ---------------------------------------------------------------- */
+.foot {
+    margin-top:3rem; padding-top:1.4rem; border-top:1px solid var(--line-soft);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem;
+    font-family:'JetBrains Mono', monospace; font-size:.74rem; color: var(--faint);
+}
+.foot .a { color: var(--muted); }
+
+/* Scrollbar ------------------------------------------------------------- */
+::-webkit-scrollbar { width:9px; height:9px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius:6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--coral); }
+
+#MainMenu, footer, header [data-testid="stToolbar"] { visibility:hidden; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-# ============================================================================
-# SESSION STATE INITIALIZATION
-# ============================================================================
+# ---------------------------------------------------------------------------
+# State & data
+# ---------------------------------------------------------------------------
 
-if 'history' not in st.session_state:
-    st.session_state.history = []
+st.session_state.setdefault("history", [])
+st.session_state.setdefault("query_count", 0)
+st.session_state.setdefault("question_input", "")
+st.session_state.setdefault("run_requested", False)
+st.session_state.setdefault("current", None)  # last result: dict or None
 
-if 'query_count' not in st.session_state:
-    st.session_state.query_count = 0
 
-# ============================================================================
-# DATABASE INITIALIZATION
-# ============================================================================
+def request_query(question: str):
+    """Button callback: drop a suggestion into the search box and run it.
+
+    Runs *before* the rerun, so the text input picks up the new value when it
+    renders — this is why clicking a suggestion now fills the search field.
+    """
+    st.session_state.question_input = question
+    st.session_state.run_requested = True
+
 
 @st.cache_resource
 def init_db():
-    """Initialize database connection"""
     return NorthwindDB()
+
 
 db = init_db()
 
-# ============================================================================
-# HEADER SECTION
-# ============================================================================
 
-st.markdown("""
-<div class="header-container">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-        <div style="font-size: 2.5rem;">📊</div>
-        <div>
-            <h1 class="header-title">Smart BI Assistant</h1>
-            <p class="header-subtitle">Natural Language Business Intelligence System</p>
-        </div>
-    </div>
+def run_edited_sql():
+    """Button callback: re-run the SQL the user edited by hand.
+
+    The edited query goes through the SAME read-only validation as generated
+    SQL, so a human can verify/fix the AI's query without any risk of a write
+    operation slipping through.
+    """
+    edited = st.session_state.get("sql_editor", "").strip()
+    question = (st.session_state.current or {}).get("question", "Edited query")
+    if not edited:
+        return
+
+    ok, msg = db.validate_query(edited)
+    if not ok:
+        st.session_state.current = {
+            "question": question, "sql": edited, "df": None,
+            "explanation": f"⚠️ Rejected — {msg.strip()}", "elapsed": 0.0, "edited": True,
+        }
+        return
+
+    start = time.time()
+    df, err = db.execute_query(edited)
+    elapsed = time.time() - start
+    if err:
+        explanation, df = f"⚠️ SQL error: {err}", None
+    elif df is None or len(df) == 0:
+        explanation = "✅ Query executed, but no rows matched."
+    else:
+        explanation = f"✅ Query executed and returned {len(df)} row(s)."
+
+    st.session_state.current = {
+        "question": question, "sql": edited, "df": df,
+        "explanation": explanation, "elapsed": elapsed, "edited": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Chart helper
+# ---------------------------------------------------------------------------
+
+def build_chart(df: pd.DataFrame):
+    """Pick a sensible chart for the result set, styled to the theme."""
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    if not numeric_cols or len(df.columns) < 2 or len(df) < 2 or len(df) > 40:
+        return None
+
+    x_col = next((c for c in df.columns if c not in numeric_cols), df.columns[0])
+    y_col = next((c for c in numeric_cols if c != x_col), numeric_cols[0])
+
+    # Time-ish x-axis -> line, otherwise bar.
+    temporal = any(k in str(x_col).lower() for k in ("month", "date", "year", "day", "time"))
+    if temporal:
+        fig = px.line(df, x=x_col, y=y_col, markers=True, color_discrete_sequence=[PALETTE[0]])
+    else:
+        fig = px.bar(df, x=x_col, y=y_col, color_discrete_sequence=[PALETTE[0]])
+
+    fig.update_layout(
+        template="plotly_dark",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter", color="#ece9e3", size=13),
+        title=None,
+        margin=dict(l=10, r=10, t=20, b=10),
+        xaxis=dict(gridcolor="#22222a", title_font_size=12),
+        yaxis=dict(gridcolor="#22222a", title_font_size=12),
+        hoverlabel=dict(bgcolor="#16161c", bordercolor="#2a2a33", font_family="JetBrains Mono"),
+    )
+    fig.update_traces(marker_line_width=0)
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Header
+# ---------------------------------------------------------------------------
+
+st.markdown(
+    """
+<div class="kicker">Natural-language analytics</div>
+<h1 class="wordmark">Smart BI <span class="mk">/ Assistant</span></h1>
+<p class="tagline">Ask a business question in plain English — get the SQL, the data,
+and a chart without writing a single query.</p>
+<div class="chips">
+    <span class="chip"><span class="d"></span> Connected</span>
+    <span class="chip">Northwind</span>
+    <span class="chip">SQLite</span>
+    <span class="chip">16,282 orders · 93 customers · 77 products</span>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-# How it works info box
-st.info("💡 **How it works:** Type your business question → AI generates SQL → Get instant results with visualizations", 
-        icon="ℹ️")
+st.markdown(
+    """
+<div class="flow">
+    <div class="flow-step"><span class="fn">1</span><div><div class="ft">Ask</div><div class="fd">Plain-English question</div></div></div>
+    <div class="flow-step"><span class="fn">2</span><div><div class="ft">Translate</div><div class="fd">LLM writes safe SQL</div></div></div>
+    <div class="flow-step"><span class="fn">3</span><div><div class="ft">Explore</div><div class="fd">Table, chart & CSV</div></div></div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
-# ============================================================================
-# MAIN QUERY INTERFACE
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Query interface
+# ---------------------------------------------------------------------------
 
-col1, col2 = st.columns([0.85, 0.15])
+st.markdown('<div class="section-label"><span class="n">01</span> Ask a question</div>', unsafe_allow_html=True)
 
-with col1:
+col_q, col_b = st.columns([0.82, 0.18])
+with col_q:
     user_question = st.text_input(
-        "Ask your business question:",
-        placeholder="E.g., 'What are the top 5 customers by revenue?'",
-        label_visibility="collapsed"
+        "question",
+        key="question_input",
+        placeholder="e.g. Which products generate the most revenue?",
+        label_visibility="collapsed",
+    )
+with col_b:
+    search_button = st.button("Run query", type="primary", use_container_width=True)
+
+# Quick suggestion pills (main area)
+suggestions = [
+    "Top 5 customers by revenue",
+    "Show monthly sales totals",
+    "Best selling products",
+    "Total sales per country",
+]
+pill_cols = st.columns(len(suggestions))
+for i, (pc, text) in enumerate(zip(pill_cols, suggestions)):
+    with pc:
+        st.button(text, key=f"pill_{i}", use_container_width=True,
+                  on_click=request_query, args=(text,))
+
+# ---------------------------------------------------------------------------
+# Sidebar
+# ---------------------------------------------------------------------------
+
+st.sidebar.markdown('<div class="kicker">Smart BI</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="side-h">Example questions</div>', unsafe_allow_html=True)
+
+for i, example in enumerate(get_example_questions()):
+    st.sidebar.button(example, key=f"ex_{i}", use_container_width=True,
+                      on_click=request_query, args=(example,))
+
+st.sidebar.markdown('<div class="side-h">Recent queries</div>', unsafe_allow_html=True)
+if st.session_state.history:
+    for i, entry in enumerate(reversed(st.session_state.history[-6:])):
+        n = len(st.session_state.history) - i
+        with st.sidebar.expander(f"#{n} · {entry['question'][:26]}"):
+            st.caption(entry["timestamp"].strftime("%Y-%m-%d %H:%M:%S"))
+            st.write(entry["question"])
+            st.caption(f"{entry['time']:.2f}s")
+else:
+    st.sidebar.caption("Nothing yet — ask your first question.")
+
+# ---------------------------------------------------------------------------
+# Execution & results
+# ---------------------------------------------------------------------------
+
+run_now = search_button or st.session_state.run_requested
+st.session_state.run_requested = False
+
+# --- Run a new question -> store the result in session state --------------
+if run_now and user_question:
+    st.session_state.query_count += 1
+    with st.spinner("Translating your question into SQL…"):
+        try:
+            start = time.time()
+            sql, results_df, explanation = execute_and_explain(user_question)
+            elapsed = time.time() - start
+        except Exception as exc:  # unexpected failure
+            sql, results_df, explanation, elapsed = None, None, f"❌ Error: {exc}", 0.0
+
+    st.session_state.history.append(
+        {"question": user_question, "timestamp": datetime.now(), "time": elapsed}
+    )
+    st.session_state.current = {
+        "question": user_question, "sql": sql, "df": results_df,
+        "explanation": explanation, "elapsed": elapsed, "edited": False,
+    }
+    # Seed the editable SQL box with the freshly generated query.
+    st.session_state.sql_editor = sql or ""
+
+# --- Render the current result (survives reruns / SQL edits) --------------
+cur = st.session_state.current
+if cur:
+    sql, results_df, explanation, elapsed = cur["sql"], cur["df"], cur["explanation"], cur["elapsed"]
+
+    st.markdown('<div class="section-label"><span class="n">02</span> Result</div>', unsafe_allow_html=True)
+
+    tone = "err" if explanation.strip().startswith("❌") else "warn" if explanation.strip().startswith("⚠️") else ""
+    clean_msg = explanation.lstrip("✅⚠️❌ ").strip()
+    edited_tag = " · edited by you" if cur.get("edited") else ""
+    st.markdown(
+        f'<div class="banner {tone}"><span class="bd"></span>{clean_msg}{edited_tag}</div>',
+        unsafe_allow_html=True,
     )
 
-with col2:
-    search_button = st.button("🔍 Search", use_container_width=True)
+    tab_table, tab_sql, tab_chart = st.tabs(["TABLE", "SQL", "CHART"])
 
-# ============================================================================
-# EXAMPLE QUESTIONS SIDEBAR
-# ============================================================================
+    with tab_table:
+        if results_df is not None and len(results_df) > 0:
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Rows", len(results_df))
+            m2.metric("Columns", len(results_df.columns))
+            m3.metric("Time", f"{elapsed:.2f}s")
+            m4.metric("Query", f"#{st.session_state.query_count}")
 
-st.sidebar.markdown("### 📌 Quick Examples")
+            st.dataframe(results_df, use_container_width=True, hide_index=True)
 
-example_questions = get_example_questions()
+            st.download_button(
+                "Download CSV",
+                data=results_df.to_csv(index=False),
+                file_name=f"query_{datetime.now():%Y%m%d_%H%M%S}.csv",
+                mime="text/csv",
+            )
+        else:
+            st.markdown('<div class="note">No rows matched this question.</div>', unsafe_allow_html=True)
 
-for i, example in enumerate(example_questions):
-    if st.sidebar.button(example, key=f"example_{i}", use_container_width=True):
-        user_question = example
-        search_button = True
+    with tab_sql:
+        if sql:
+            st.markdown(
+                '<div class="console-bar">'
+                '<span class="dot" style="background:#ff5f56"></span>'
+                '<span class="dot" style="background:#ffbd2e"></span>'
+                '<span class="dot" style="background:#27c93f"></span>'
+                '<span class="t">generated_query.sql</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.code(sql, language="sql")
 
-# ============================================================================
-# QUERY EXECUTION SECTION
-# ============================================================================
+            with st.expander("✏️  Verify & re-run this query"):
+                st.caption(
+                    "The AI can misread a question, so review the SQL and edit it if "
+                    "needed. Only read-only SELECT / WITH queries are allowed."
+                )
+                st.text_area("edit-sql", key="sql_editor", height=170,
+                             label_visibility="collapsed")
+                st.button("Run edited SQL", type="primary", on_click=run_edited_sql)
+        else:
+            st.markdown('<div class="note">No SQL was generated for this question.</div>', unsafe_allow_html=True)
 
-if search_button and user_question:
-    st.session_state.query_count += 1
-    
-    with st.spinner("🔄 Processing your question..."):
-        try:
-            # Generate and execute SQL
-            from query_engine import execute_and_explain
-            import time
-            
-            start_time = time.time()
-            sql, results_df, explanation = execute_and_explain(user_question)
-            elapsed_time = time.time() - start_time
-            
-            # Add to history
-            st.session_state.history.append({
-                'question': user_question,
-                'timestamp': datetime.now(),
-                'time': elapsed_time
-            })
-            
-            # Display Results Section
-            st.markdown("---")
-            
-            # Explanation Banner
-            st.markdown(f"""
-            <div class="success-message">
-                ✅ {explanation}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Create tabs for different views
-            tab1, tab2, tab3 = st.tabs(["📊 Results", "🔧 SQL Query", "📈 Analytics"])
-            
-            # TAB 1: RESULTS
-            with tab1:
-                if results_df is not None and len(results_df) > 0:
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.metric("📋 Records", len(results_df))
-                    with col2:
-                        st.metric("⏱️ Query Time", f"{elapsed_time:.2f}s")
-                    with col3:
-                        st.metric("📑 Columns", len(results_df.columns))
-                    with col4:
-                        st.metric("✨ Query ID", f"#{st.session_state.query_count}")
-                    
-                    st.markdown("#### Data Table")
-                    
-                    # Display dataframe with enhanced styling
-                    st.dataframe(
-                        results_df,
-                        use_container_width=True,
-                        hide_index=False,
-                        column_config={
-                            col: st.column_config.Column(width="medium")
-                            for col in results_df.columns
-                        }
-                    )
-                    
-                    # Download option
-                    csv = results_df.to_csv(index=False)
-                    st.download_button(
-                        label="⬇️ Download as CSV",
-                        data=csv,
-                        file_name=f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                else:
-                    st.markdown("""
-                    <div class="info-message">
-                        ℹ️ No results found for this query.
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            # TAB 2: SQL QUERY
-            with tab2:
-                st.markdown("#### Generated SQL Query")
-                st.code(sql, language="sql", line_numbers=True)
-                
-                # Copy button
-                if st.button("📋 Copy SQL", use_container_width=True):
-                    st.success("SQL copied to clipboard!")
-            
-            # TAB 3: ANALYTICS (for numeric data)
-            with tab3:
-                if results_df is not None and len(results_df) > 0:
-                    # Get numeric columns
-                    numeric_cols = results_df.select_dtypes(include=['number']).columns.tolist()
-                    
-                    if numeric_cols:
-                        st.markdown("#### Data Visualization")
-                        
-                        # Auto-detect chart type based on data
-                        if len(results_df) <= 20 and len(numeric_cols) <= 3:
-                            fig = px.bar(
-                                results_df,
-                                x=results_df.columns[0],
-                                y=numeric_cols[0] if numeric_cols else results_df.columns[1],
-                                title="Data Visualization",
-                                color_discrete_sequence=['#6366f1'],
-                                template="plotly_dark"
-                            )
-                            
-                            fig.update_layout(
-                                hovermode='x unified',
-                                plot_bgcolor='rgba(30,41,59,0.5)',
-                                paper_bgcolor='rgba(15,23,42,1)',
-                                font=dict(color='#f1f5f9'),
-                                title_font_size=18,
-                                xaxis_title_font_size=14,
-                                yaxis_title_font_size=14
-                            )
-                            
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.info("📊 Visualization not available for this data structure.")
-                    else:
-                        st.info("📊 No numeric columns found for visualization.")
-                else:
-                    st.info("ℹ️ No data to visualize.")
-        
-        except Exception as e:
-            st.markdown(f"""
-            <div class="error-message">
-                ❌ Error: {str(e)}
-            </div>
-            """, unsafe_allow_html=True)
-            st.stop()
+    with tab_chart:
+        fig = build_chart(results_df) if results_df is not None else None
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.markdown(
+                '<div class="note">No chart for this shape of data — '
+                'charts appear for small, aggregated result sets.</div>',
+                unsafe_allow_html=True,
+            )
 
-# ============================================================================
-# QUERY HISTORY SIDEBAR
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Footer
+# ---------------------------------------------------------------------------
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📜 Query History")
-
-if st.session_state.history:
-    for i, entry in enumerate(reversed(st.session_state.history[-5:])):
-        with st.sidebar.expander(f"Query {len(st.session_state.history) - i}"):
-            st.write(f"**Question:** {entry['question']}")
-            st.write(f"**Time:** {entry['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}")
-            st.write(f"**Duration:** {entry['time']:.2f}s")
-else:
-    st.sidebar.write("*No queries yet. Start asking!*")
-
-# ============================================================================
-# FOOTER
-# ============================================================================
-
-st.markdown("""
-<div class="footer">
-    <div style="margin-bottom: 1rem;">
-        <strong>Smart BI Assistant</strong> | Business Intelligence System
-    </div>
-    <div>
-        Master's Thesis Project - ESTIN 2025<br>
-        Sarah Houas | s_houas@estin.dz
-    </div>
+st.markdown(
+    """
+<div class="foot">
+    <span>Smart BI Assistant · Natural-language business intelligence</span>
+    <span class="a">Sarah Houas · ESTIN 2025 · s_houas@estin.dz</span>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
