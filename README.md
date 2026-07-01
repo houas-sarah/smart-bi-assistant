@@ -32,6 +32,22 @@ Your question  ──►  LLM (Hugging Face)  ──►  SQL query  ──►  S
 
 ---
 
+## 📸 Screenshots
+
+**Ask a question in plain English**
+
+![Home](docs/home.png)
+
+**Get results as a table — with row/column/timing metrics and CSV export**
+
+![Results](docs/results.png)
+
+**Inspect, edit, and re-run the generated SQL (human-in-the-loop)**
+
+![SQL editor](docs/sql-editor.png)
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Clone the repository
@@ -73,6 +89,33 @@ streamlit run app.py
 ```
 
 Then open your browser at <http://localhost:8501>.
+
+---
+
+## ☁️ Deployment (Streamlit Community Cloud)
+
+The app deploys for free straight from GitHub — no server setup required.
+
+1. Push this repository to GitHub.
+2. Go to **[share.streamlit.io](https://share.streamlit.io)** and sign in with GitHub.
+3. Click **Create app** → **Deploy a public app from GitHub** and select:
+   - **Repository:** `your-username/smart-bi-assistant`
+   - **Branch:** `main`
+   - **Main file path:** `app.py`
+4. Open **Advanced settings → Secrets** and paste your credentials in TOML form:
+
+   ```toml
+   HF_API_KEY = "hf_your_token_here"
+   HF_MODEL_NAME = "Qwen/Qwen2.5-Coder-32B-Instruct"
+   ```
+
+5. Click **Deploy**. The first build installs `requirements.txt`; after that the
+   app is live at a public `*.streamlit.app` URL.
+
+> **Notes**
+> - The `HF_API_KEY` is read from Secrets, never from the repo.
+> - By default the deployed URL is public. Restrict access under
+>   **Settings → Sharing** if needed, and consider rotating your token after testing.
 
 ---
 
