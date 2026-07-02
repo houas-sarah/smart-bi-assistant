@@ -33,7 +33,7 @@ st.set_page_config(
     page_icon="◆",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={"About": "Smart BI Assistant · Master's Thesis · ESTIN 2025"},
+    menu_items={"About": "Smart BI Assistant — ask business questions in plain English"},
 )
 
 # Signature chart palette (reused everywhere for consistency)
