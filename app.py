@@ -237,7 +237,20 @@ hr { border-color: var(--line-soft); }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius:6px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--coral); }
 
-#MainMenu, footer, header [data-testid="stToolbar"] { visibility:hidden; }
+#MainMenu, footer { visibility: hidden; }
+header [data-testid="stToolbar"] { visibility: hidden; }
+
+/* Keep the sidebar show/hide controls clickable (don't let the rules above
+   hide the arrow that reopens the collapsed sidebar). */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stExpandSidebarButton"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: flex !important;
+    z-index: 1000001 !important;
+}
 </style>
 """,
     unsafe_allow_html=True,
