@@ -7,6 +7,8 @@ shows you the answer as a table and a chart — no SQL knowledge needed.
 I built this for my Master's thesis at ESTIN. It uses a language model to turn
 plain English into SQL and runs everything against the Northwind sample database.
 
+**Live demo:** https://smart-bi-assistant-xnr5vq24a86rt97nzwxaud.streamlit.app/
+
 ## What you can do with it
 
 - Ask questions in English instead of writing queries by hand
