@@ -1,70 +1,69 @@
 """
-Database handler for Northwind business database
-Safe SQL execution with validation
+Database handler for the Northwind database.
+
+Two layers of safety:
+  1. Every query is validated by sql_guard.check_sql (sqlglot AST parsing) — only
+     a single, read-only statement is accepted.
+  2. Queries run over a strictly read-only SQLite connection (mode=ro), so even a
+     query that somehow slipped past validation physically cannot modify the data.
 """
 
 import sqlite3
-import pandas as pd
+from pathlib import Path
 from typing import Tuple, Optional
+
+import pandas as pd
+
+from sql_guard import check_sql
 
 
 class NorthwindDB:
-    """Handler for Northwind trading company database"""
-    
+    """Handler for the Northwind trading-company database."""
+
     def __init__(self, db_path: str = "northwind.db"):
         self.db_path = db_path
         self._verify_connection()
-    
+
+    def _connect(self) -> sqlite3.Connection:
+        """Open a strictly read-only connection to the database."""
+        uri = Path(self.db_path).resolve().as_uri() + "?mode=ro"
+        return sqlite3.connect(uri, uri=True)
+
     def _verify_connection(self):
-        """Test database connection"""
+        """Confirm the database is reachable at startup."""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM Customers")
-            count = cursor.fetchone()[0]
+            conn = self._connect()
+            count = conn.execute("SELECT COUNT(*) FROM Customers").fetchone()[0]
             conn.close()
             print(f"Database connected: {count} customers found")
         except Exception as e:
-            raise Exception(f" Database error: {str(e)}")
-    
+            raise Exception(f"Database error: {str(e)}")
+
     def execute_query(self, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
-        """Execute SQL query and return results as DataFrame"""
+        """Validate, then run a read-only query. Returns (DataFrame, error)."""
+        is_safe, reason = self.validate_query(sql)
+        if not is_safe:
+            return None, reason
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             df = pd.read_sql_query(sql, conn)
             conn.close()
             return df, None
         except Exception as e:
             return None, str(e)
-    
+
     def validate_query(self, sql: str) -> Tuple[bool, str]:
-        """Check if query is safe (read-only)"""
-        sql_upper = sql.upper().strip()
-        
-        # Forbidden operations
-        forbidden = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE', 'TRUNCATE']
-        
-        for keyword in forbidden:
-            if keyword in sql_upper:
-                return False, f" Forbidden operation: {keyword}"
-        
-        if not sql_upper.startswith('SELECT') and not sql_upper.startswith('WITH'):
-            return False, "Only SELECT queries allowed"
-        
-        return True, " Query is safe"
+        """Return (is_safe, reason). Only a single read-only statement passes."""
+        return check_sql(sql)
 
 
-# Test the database
+# Quick manual check
 if __name__ == "__main__":
     print("Testing NorthwindDB...")
     db = NorthwindDB()
-    
-    # Test query
-    sql = "SELECT CompanyName, Country FROM Customers LIMIT 5"
-    results, error = db.execute_query(sql)
-    
+    results, error = db.execute_query("SELECT CompanyName, Country FROM Customers LIMIT 5")
     if error:
         print(f"Error: {error}")
     else:
-        print("\n Sample Customers:")
+        print("\nSample Customers:")
         print(results)

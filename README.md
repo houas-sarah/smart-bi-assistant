@@ -80,13 +80,20 @@ The pipeline is short:
 your question  →  model writes SQL  →  SQL runs on SQLite  →  table + chart
 ```
 
-Two things keep it safe and honest:
+A few guardrails keep it safe and honest:
 
-- Only read-only queries run. Anything that would change the data (`DROP`,
-  `DELETE`, `UPDATE`, and so on) is rejected before it reaches the database —
-  whether the SQL came from the model or from you.
-- The SQL is always visible. A language model can misread a question, so you can
-  open the SQL tab, fix the query, and run your edited version instead.
+- **The SQL is parsed, not string-matched.** Every query is parsed into a syntax
+  tree with [`sqlglot`](https://github.com/tobymao/sqlglot). Only a single
+  read-only statement (`SELECT` / `WITH`) is allowed; anything that writes,
+  changes the schema, chains multiple statements, or can't be parsed is rejected.
+  This is far harder to fool than keyword blocking — and it doesn't wrongly reject
+  a valid query just because a word like `delete` appears inside a text value.
+- **The connection is read-only.** Queries run over a SQLite connection opened in
+  `mode=ro`, so even a query that somehow slipped past validation physically
+  cannot modify the data.
+- **The SQL is always visible and editable.** A language model can misread a
+  question, so you can open the SQL tab, fix the query, and run your edited
+  version — it goes through exactly the same checks.
 
 ## Is the SQL always correct?
 

@@ -13,6 +13,7 @@ import requests
 from dotenv import load_dotenv
 
 from database import NorthwindDB
+from sql_guard import check_sql
 
 # ============================================================================
 # CONFIG
@@ -104,22 +105,13 @@ def clean_sql(sql_text: str) -> str:
 
 def is_valid_sql(sql: str) -> bool:
     """
-    Very simple security check:
-    - Only allow SELECT queries
-    - Forbid other dangerous commands
+    Security check delegated to sql_guard.check_sql: the SQL must parse to a
+    single, read-only statement. This is far harder to fool than keyword
+    matching (and doesn't reject valid queries that merely contain a word like
+    "delete" inside a string literal).
     """
-    if not sql:
-        return False
-
-    lowered = sql.strip().lower()
-    if not lowered.startswith("select"):
-        return False
-
-    forbidden = ["drop ", "delete ", "update ", "insert ", "alter "]
-    if any(word in lowered for word in forbidden):
-        return False
-
-    return True
+    is_safe, _ = check_sql(sql)
+    return is_safe
 
 
 # ============================================================================
